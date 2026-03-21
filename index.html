@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomotime | Modern Pomodoro Timer</title>
+    <meta name="description" content="Pomotime — a premium Pomodoro timer with ambient sounds, focus mode, and beautiful animations. Stay productive and focused.">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body class="dark-theme">
+
+    <!-- Background Particles Canvas -->
+    <canvas id="bg-particles"></canvas>
+
+    <div class="layout-wrapper">
+        <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">
+                <i data-feather="target" class="logo-icon"></i> Pomotime
+            </h1>
+            <div class="header-actions">
+                <button id="focus-mode-toggle" class="btn-icon" aria-label="Toggle Focus Mode" title="Focus Mode (F)">
+                    <i data-feather="eye" class="icon-focus-on"></i>
+                    <i data-feather="eye-off" class="icon-focus-off"></i>
+                </button>
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle Dark/Light Mode" title="Toggle Theme">
+                    <i data-feather="sun" class="icon-sun"></i>
+                    <i data-feather="moon" class="icon-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Mode Switching Tabs -->
+            <div class="modes-wrapper glass-panel">
+                <div class="mode-indicator"></div>
+                <button class="mode-btn active" data-mode="focus">Focus</button>
+                <button class="mode-btn" data-mode="short-break">Short Break</button>
+                <button class="mode-btn" data-mode="long-break">Long Break</button>
+            </div>
+
+            <!-- Timer Section -->
+            <div class="timer-section">
+                <div class="timer-circle-wrapper">
+                    <!-- SVG Progress Ring -->
+                    <svg class="progress-ring" width="300" height="300">
+                        <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="var(--primary-color)" />
+                                <stop offset="100%" stop-color="var(--accent-color)" />
+                            </linearGradient>
+                            <linearGradient id="gradient-animated" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#7C5CFF">
+                                    <animate attributeName="stop-color" values="#7C5CFF;#00CFFF;#7C5CFF" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                                <stop offset="50%" stop-color="#00CFFF">
+                                    <animate attributeName="stop-color" values="#00CFFF;#A855F7;#00CFFF" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                                <stop offset="100%" stop-color="#A855F7">
+                                    <animate attributeName="stop-color" values="#A855F7;#7C5CFF;#A855F7" dur="4s" repeatCount="indefinite"/>
+                                </stop>
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <filter id="glow-strong">
+                                <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <!-- Background Circle -->
+                        <circle class="progress-ring__background" stroke-width="8" fill="transparent" r="140" cx="150" cy="150"/>
+                        <!-- Progress Circle -->
+                        <circle class="progress-ring__circle" stroke-width="8" fill="transparent" r="140" cx="150" cy="150" filter="url(#glow)"/>
+                    </svg>
+
+                    <!-- Time Display Inside -->
+                    <div class="timer-display">
+                        <span id="time-left">25:00</span>
+                        <span id="mode-label">Focus Session</span>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls">
+                    <button class="btn-primary" id="start-btn" aria-label="Start Timer">
+                        <i data-feather="play"></i> Start
+                    </button>
+                    <button class="btn-secondary" id="reset-btn" aria-label="Reset Timer" title="Reset (R)">
+                        <i data-feather="rotate-ccw"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Panels (Stats & Sounds) -->
+            <div class="bottom-panels hideable-ui">
+                
+                <!-- Session Tracking Dashboard -->
+                <div class="stats-panel glass-panel">
+                    <h3><i data-feather="bar-chart-2"></i> Today's Progress</h3>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-icon-wrapper"><i data-feather="check-circle"></i></div>
+                            <span class="stat-value" id="stat-sessions">0</span>
+                            <span class="stat-label">Sessions</span>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-icon-wrapper"><i data-feather="clock"></i></div>
+                            <span class="stat-value"><span id="stat-time">0</span>m</span>
+                            <span class="stat-label">Focus Time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ambient Sounds -->
+                <div class="sounds-panel glass-panel">
+                    <h3><i data-feather="headphones"></i> Ambient Audio</h3>
+                    <div class="sound-list">
+                        <div class="sound-item">
+                            <span class="sound-name"><i data-feather="cloud-drizzle"></i> Rain</span>
+                            <button class="sound-play-btn" data-sound="rain" title="Play/Pause Rain">
+                                <i data-feather="play"></i>
+                            </button>
+                        </div>
+                        <div class="sound-item">
+                            <span class="sound-name"><i data-feather="wind"></i> Waves (Cafe)</span>
+                            <button class="sound-play-btn" data-sound="waves" title="Play/Pause Waves">
+                                <i data-feather="play"></i>
+                            </button>
+                        </div>
+                        <div class="sound-item">
+                            <span class="sound-name"><i data-feather="radio"></i> White Noise</span>
+                            <button class="sound-play-btn" data-sound="white" title="Play/Pause White Noise">
+                                <i data-feather="play"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Sound Visualizer -->
+                    <canvas id="sound-visualizer" width="300" height="40"></canvas>
+                    <div class="volume-control">
+                        <i data-feather="volume-2" class="volume-icon"></i>
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+                </div>
+            </div>
+
+        </main>
+        </div> <!-- End app-container -->
+
+        <!-- Pomodoro Information Section -->
+        <section class="info-section glass-panel hideable-ui">
+            <h2 class="info-title"><i data-feather="book-open"></i> The Pomodoro Technique</h2>
+            
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon"><i data-feather="target"></i></div>
+                    <h3>What is it?</h3>
+                    <p>A time management method that uses a timer to break down work into intervals, traditionally 25 minutes long, separated by short breaks.</p>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-icon"><i data-feather="clock"></i></div>
+                    <h3>How it Works</h3>
+                    <p>Work for <strong>25 minutes</strong> (one Pomodoro), then take a <strong>5-minute break</strong>. After four Pomodoros, take a longer <strong>15-minute break</strong>.</p>
+                </div>
+                
+                <div class="info-card">
+                    <div class="info-icon"><i data-feather="zap"></i></div>
+                    <h3>Core Benefits</h3>
+                    <ul class="benefits-list">
+                        <li><i data-feather="check-circle" class="check"></i> Maintains laser focus</li>
+                        <li><i data-feather="check-circle" class="check"></i> Reduces mental fatigue</li>
+                        <li><i data-feather="check-circle" class="check"></i> Sustains consistent productivity</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </div> <!-- End layout-wrapper -->
+
+    <!-- Session Completion Overlay -->
+    <div id="session-complete-overlay" class="session-overlay hidden">
+        <div class="session-overlay-content glass-panel">
+            <div class="session-glow-ring"></div>
+            <i data-feather="check-circle" class="session-check-icon"></i>
+            <h2>Session Complete</h2>
+            <p>Great work! Take a well-deserved break.</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification / Onboarding tooltip -->
+    <div id="toast" class="toast hidden">
+        <i data-feather="info"></i>
+        <span id="toast-message">Hotkeys: Space (Play/Pause), M (Mode), R (Reset)</span>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal Trigger Info -->
+    <div class="shortcut-hint hideable-ui">Press <strong>Space</strong> to Play/Pause &bullet; <strong>R</strong> to Reset &bullet; <strong>F</strong> Focus Mode</div>
+
+    <script src="app.js"></script>
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>
