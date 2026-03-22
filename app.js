@@ -2,7 +2,19 @@
  * Pomotime - Premium Application Logic
  * Features: Timer, Ambient Audio, Sound Visualizer, Particles,
  *           Focus Mode, Session Celebration, Stats Animation
+ * Optimized for mobile performance.
  */
+
+// ====== Mobile Detection ======
+const isMobile = (() => {
+    const mq = window.matchMedia('(max-width: 768px)').matches;
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    return mq && touch;
+})();
+
+if (isMobile) {
+    document.body.classList.add('is-mobile');
+}
 
 // ====== Timer Configuration ======
 const MODES = {
@@ -14,7 +26,9 @@ const MODES = {
 // ====== State ======
 let currentMode = 'focus';
 let timeLeft = MODES[currentMode].time;
-let timerInterval = null;
+let timerRAF = null;
+let timerStartTimestamp = null;
+let timerStartTimeLeft = null;
 let isRunning = false;
 let isFocusMode = false;
 let sessionStats = {
@@ -72,12 +86,18 @@ function formatTime(seconds) {
     return `${m}:${s}`;
 }
 
+// Cache previous display to avoid redundant DOM writes
+let lastDisplayedTime = '';
 function updateDisplay() {
-    elTimeLeft.textContent = formatTime(timeLeft);
+    const formatted = formatTime(timeLeft);
+    if (formatted !== lastDisplayedTime) {
+        elTimeLeft.textContent = formatted;
+        lastDisplayedTime = formatted;
+        document.title = `${formatted} - ${MODES[currentMode].label}`;
+    }
     const totalDuration = MODES[currentMode].time;
     const progress = ((totalDuration - timeLeft) / totalDuration) * 100;
     setProgress(progress);
-    document.title = `${formatTime(timeLeft)} - ${MODES[currentMode].label}`;
 }
 
 // ====== Mode Indicator Sliding ======
@@ -100,27 +120,52 @@ function switchMode(mode) {
     updateModeIndicator(mode);
 
     if (isRunning) toggleTimer();
+    lastDisplayedTime = ''; // force refresh
     updateDisplay();
+}
+
+// ====== requestAnimationFrame-based Timer ======
+function timerTick(timestamp) {
+    if (!isRunning) return;
+
+    if (!timerStartTimestamp) {
+        timerStartTimestamp = timestamp;
+        timerStartTimeLeft = timeLeft;
+    }
+
+    const elapsed = (timestamp - timerStartTimestamp) / 1000;
+    const newTimeLeft = Math.max(0, timerStartTimeLeft - Math.floor(elapsed));
+
+    if (newTimeLeft !== timeLeft) {
+        timeLeft = newTimeLeft;
+        updateDisplay();
+    }
+
+    if (timeLeft <= 0) {
+        handleTimerEnd();
+        return;
+    }
+
+    timerRAF = requestAnimationFrame(timerTick);
 }
 
 function toggleTimer() {
     const wrapper = document.querySelector('.timer-circle-wrapper');
     if (isRunning) {
-        clearInterval(timerInterval);
+        if (timerRAF) cancelAnimationFrame(timerRAF);
+        timerRAF = null;
+        timerStartTimestamp = null;
+        timerStartTimeLeft = null;
         isRunning = false;
         btnStart.innerHTML = '<i data-feather="play"></i> Start';
         btnStart.classList.remove('running');
         wrapper.classList.remove('is-active');
     } else {
         requestNotificationPermission();
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            updateDisplay();
-            if (timeLeft <= 0) {
-                handleTimerEnd();
-            }
-        }, 1000);
+        timerStartTimestamp = null;
+        timerStartTimeLeft = null;
         isRunning = true;
+        timerRAF = requestAnimationFrame(timerTick);
         btnStart.innerHTML = '<i data-feather="pause"></i> Pause';
         btnStart.classList.add('running');
         wrapper.classList.add('is-active');
@@ -131,12 +176,16 @@ function toggleTimer() {
 function resetTimer() {
     if (isRunning) toggleTimer();
     timeLeft = MODES[currentMode].time;
+    lastDisplayedTime = ''; // force refresh
     updateDisplay();
     showToast('Timer Reset');
 }
 
 function handleTimerEnd() {
-    clearInterval(timerInterval);
+    if (timerRAF) cancelAnimationFrame(timerRAF);
+    timerRAF = null;
+    timerStartTimestamp = null;
+    timerStartTimeLeft = null;
     isRunning = false;
     btnStart.innerHTML = '<i data-feather="play"></i> Start';
     btnStart.classList.remove('running');
@@ -166,7 +215,9 @@ function showSessionComplete() {
     sessionOverlay.classList.add('show');
     feather.replace();
 
-    spawnConfetti();
+    if (!isMobile) {
+        spawnConfetti();
+    }
 
     setTimeout(() => {
         sessionOverlay.classList.remove('show');
@@ -176,7 +227,8 @@ function showSessionComplete() {
 
 function spawnConfetti() {
     const colors = ['#7C5CFF', '#00CFFF', '#A855F7', '#FF6B9D', '#FFD93D', '#6BCB77'];
-    for (let i = 0; i < 25; i++) {
+    const count = isMobile ? 10 : 25;
+    for (let i = 0; i < count; i++) {
         const particle = document.createElement('div');
         particle.className = 'confetti-particle';
         particle.style.left = `${50 + (Math.random() - 0.5) * 40}vw`;
@@ -446,6 +498,11 @@ function drawVisualizer() {
         const gap = 2;
         let x = 0;
 
+        // Disable shadow on mobile for performance
+        if (!isMobile) {
+            ctx.shadowBlur = 6;
+        }
+
         for (let i = 0; i < bufferLength; i++) {
             const barHeight = (dataArray[i] / 255) * height * 0.85;
 
@@ -454,23 +511,23 @@ function drawVisualizer() {
             const alpha = 0.6 + (dataArray[i] / 255) * 0.4;
             ctx.fillStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
 
+            if (!isMobile) {
+                ctx.shadowColor = `hsla(${hue}, 80%, 65%, 0.5)`;
+            }
+
             // Rounded bar
             const barX = x;
             const barY = height - barHeight;
-            const radius = Math.min(barWidth / 2, 3);
+            const barRadius = Math.min(barWidth / 2, 3);
             ctx.beginPath();
-            ctx.moveTo(barX + radius, barY);
-            ctx.lineTo(barX + barWidth - radius, barY);
-            ctx.quadraticCurveTo(barX + barWidth, barY, barX + barWidth, barY + radius);
+            ctx.moveTo(barX + barRadius, barY);
+            ctx.lineTo(barX + barWidth - barRadius, barY);
+            ctx.quadraticCurveTo(barX + barWidth, barY, barX + barWidth, barY + barRadius);
             ctx.lineTo(barX + barWidth, height);
             ctx.lineTo(barX, height);
-            ctx.lineTo(barX, barY + radius);
-            ctx.quadraticCurveTo(barX, barY, barX + radius, barY);
+            ctx.lineTo(barX, barY + barRadius);
+            ctx.quadraticCurveTo(barX, barY, barX + barRadius, barY);
             ctx.fill();
-
-            // Glow effect
-            ctx.shadowColor = `hsla(${hue}, 80%, 65%, 0.5)`;
-            ctx.shadowBlur = 6;
 
             x += barWidth + gap;
         }
@@ -480,11 +537,13 @@ function drawVisualizer() {
 }
 
 // ====== Background Particle System ======
+let particleAnimRAF = null;
+
 function initParticles() {
     if (!bgCanvas) return;
     const ctx = bgCanvas.getContext('2d');
     let particles = [];
-    const PARTICLE_COUNT = 35;
+    const PARTICLE_COUNT = isMobile ? 10 : 35;
 
     function resize() {
         bgCanvas.width = window.innerWidth;
@@ -508,8 +567,11 @@ function initParticles() {
     }
 
     let frame = 0;
+    let isPaused = false;
+
     function animate() {
-        requestAnimationFrame(animate);
+        if (isPaused) return;
+        particleAnimRAF = requestAnimationFrame(animate);
         frame++;
         ctx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
 
@@ -530,7 +592,7 @@ function initParticles() {
             const pulse = Math.sin(frame * p.pulseSpeed + p.pulsePhase) * 0.15;
             const opacity = Math.max(0.05, p.opacity + pulse);
 
-            // Draw
+            // Draw particle dot
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
 
@@ -541,39 +603,54 @@ function initParticles() {
             }
             ctx.fill();
 
-            // Soft glow
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
-            if (isLight) {
-                ctx.fillStyle = `rgba(124, 92, 255, ${opacity * 0.08})`;
-            } else {
-                ctx.fillStyle = `rgba(124, 92, 255, ${opacity * 0.12})`;
+            // Soft glow — skip on mobile
+            if (!isMobile) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
+                if (isLight) {
+                    ctx.fillStyle = `rgba(124, 92, 255, ${opacity * 0.08})`;
+                } else {
+                    ctx.fillStyle = `rgba(124, 92, 255, ${opacity * 0.12})`;
+                }
+                ctx.fill();
             }
-            ctx.fill();
         });
 
-        // Draw connecting lines between nearby particles
-        for (let i = 0; i < particles.length; i++) {
-            for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 120) {
-                    const lineOpacity = (1 - dist / 120) * 0.08;
-                    ctx.beginPath();
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    if (isLight) {
-                        ctx.strokeStyle = `rgba(124, 92, 255, ${lineOpacity})`;
-                    } else {
-                        ctx.strokeStyle = `rgba(200, 200, 255, ${lineOpacity})`;
+        // Draw connecting lines — skip on mobile
+        if (!isMobile) {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        const lineOpacity = (1 - dist / 120) * 0.08;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        if (isLight) {
+                            ctx.strokeStyle = `rgba(124, 92, 255, ${lineOpacity})`;
+                        } else {
+                            ctx.strokeStyle = `rgba(200, 200, 255, ${lineOpacity})`;
+                        }
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
                     }
-                    ctx.lineWidth = 0.5;
-                    ctx.stroke();
                 }
             }
         }
     }
+
+    // Pause when tab is hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            isPaused = true;
+            if (particleAnimRAF) cancelAnimationFrame(particleAnimRAF);
+        } else {
+            isPaused = false;
+            animate();
+        }
+    });
 
     // Respect reduced motion
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -709,7 +786,7 @@ function init() {
         showToast('Welcome to Pomotime! Press Space to Start.');
     }, 1000);
 
-    // Scroll Observer for Info Section
+    // Scroll Observer for Info Section (lazy reveal)
     const infoObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
