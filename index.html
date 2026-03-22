@@ -223,6 +223,12 @@
         inject();
     </script>
 
+    <!-- Vercel Speed Insights -->
+    <script type="module">
+        import { injectSpeedInsights } from 'https://cdn.jsdelivr.net/npm/@vercel/speed-insights@2/+esm';
+        injectSpeedInsights();
+    </script>
+
     <script src="app.js"></script>
     <script>
         feather.replace();
