@@ -1,0 +1,29 @@
+{
+  "name": "pomotime",
+  "version": "1.0.0",
+  "description": "Pomotime - A premium Pomodoro timer with ambient sounds, focus mode, and beautiful animations",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx serve .",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yazix01/Pomotime.git"
+  },
+  "keywords": [
+    "pomodoro",
+    "timer",
+    "productivity",
+    "focus"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yazix01/Pomotime/issues"
+  },
+  "homepage": "https://github.com/yazix01/Pomotime#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
